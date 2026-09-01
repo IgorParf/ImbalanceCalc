@@ -19,6 +19,9 @@
 [docs/METHODOLOGY.md](docs/METHODOLOGY.md) — його можна використати як
 специфікацію в іншому проєкті.
 
+Плани: [docs/WINDOWS_APP_PLAN.md](docs/WINDOWS_APP_PLAN.md) — як зробити з
+цього Windows-додаток (не розпочато).
+
 ## Встановлення
 
 ```bash
