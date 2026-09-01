@@ -1,13 +1,14 @@
-"""Читання та валідація вхідних файлів з даними."""
+"""Читання та валідація місячних файлів гарантованого покупця."""
 
-from .loaders import load_dataframe, load_records
-from .schema import COLUMN_ALIASES, REQUIRED_COLUMNS
-from .validators import validate_dataframe
+from .loaders import guess_period_label, load_monthly_file
+from .schema import COLUMN_TITLES, REQUIRED_COLUMNS, SHEET_COLUMNS
+from .validators import validate_frame
 
 __all__ = [
-    "load_dataframe",
-    "load_records",
-    "validate_dataframe",
-    "COLUMN_ALIASES",
+    "load_monthly_file",
+    "guess_period_label",
+    "validate_frame",
+    "SHEET_COLUMNS",
     "REQUIRED_COLUMNS",
+    "COLUMN_TITLES",
 ]

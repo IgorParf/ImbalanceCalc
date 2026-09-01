@@ -1,25 +1,89 @@
-"""Спільні фікстури для тестів."""
+"""Спільні фікстури: синтетичний файл ГП того самого формату, що й реальний."""
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from decimal import Decimal
+import io
+from datetime import date
 
+import pandas as pd
 import pytest
+from openpyxl import Workbook
 
-from imbalance_calc.models import PeriodRecord
+from imbalance_calc.dataio.schema import HOURS_PER_DAY, SHEET_COLUMNS
+
+#: Дві доби по 24 години — достатньо, щоб перевірити добову агрегацію.
+DAYS = [date(2026, 7, 1), date(2026, 7, 2)]
+
+
+def _base_values() -> dict[str, list[list[float]]]:
+    """Погодинні значення для кожної колонки: список діб, у добі — 24 години."""
+    hours = HOURS_PER_DAY
+
+    def const(value: float) -> list[list[float]]:
+        return [[value] * hours for _ in DAYS]
+
+    values: dict[str, list[list[float]]] = {
+        "w_pr": const(10.0),
+        "w_f": const(9.0),
+        "d_w": const(0.0),
+        "imsp": const(3000.0),
+        "p_dam": const(2000.0),
+        "sum_w_sn_delta": const(-100.0),
+        "sum_w_sp_delta": const(40.0),
+        "sum_w_sn": const(-100.0),
+        "sum_w_sp": const(40.0),
+        "d_sum_w": const(0.0),
+        "ieq_gb": const(-50.0),
+    }
+    # Похідні величини — щоб контрольні співвідношення сходилися
+    values["w_s"] = [
+        [values["w_f"][d][h] - values["w_pr"][d][h] for h in range(hours)]
+        for d in range(len(DAYS))
+    ]
+    values["w_s_delta"] = [
+        [values["w_s"][d][h] + values["d_w"][d][h] for h in range(hours)]
+        for d in range(len(DAYS))
+    ]
+    values["w_sum"] = [
+        [values["sum_w_sn"][d][h] + values["sum_w_sp"][d][h] for h in range(hours)]
+        for d in range(len(DAYS))
+    ]
+    values["w_sum_delta"] = [
+        [values["sum_w_sn_delta"][d][h] + values["sum_w_sp_delta"][d][h] for h in range(hours)]
+        for d in range(len(DAYS))
+    ]
+    return values
+
+
+def make_workbook(values: dict[str, list[list[float]]] | None = None) -> io.BytesIO:
+    """Скласти xlsx у пам'яті зі структурою місячного файлу ГП."""
+    values = values or _base_values()
+    wb = Workbook()
+    wb.remove(wb.active)
+    for sheet_name, column in SHEET_COLUMNS.items():
+        # Excel обрізає назви аркушів до 31 символу — відтворюємо це
+        ws = wb.create_sheet(sheet_name[:31])
+        ws.append(["Доба", "Зона"] + [f"{h} год" for h in range(1, HOURS_PER_DAY + 1)])
+        for index, day in enumerate(DAYS):
+            ws.append([day.strftime("%d.%m.%Y"), "IPS"] + list(values[column][index]))
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer
 
 
 @pytest.fixture
-def sample_day() -> list[PeriodRecord]:
-    """Одна доба з 24 годин: план 10 МВт·год, факт із невеликими відхиленнями."""
-    start = datetime(2025, 1, 1)
-    return [
-        PeriodRecord(
-            timestamp=start + timedelta(hours=h),
-            planned_mwh=Decimal("10"),
-            actual_mwh=Decimal("10") + Decimal(h % 3) - Decimal("1"),
-            price_uah_mwh=Decimal("2500"),
-        )
-        for h in range(24)
-    ]
+def base_values() -> dict[str, list[list[float]]]:
+    return _base_values()
+
+
+@pytest.fixture
+def workbook_bytes() -> io.BytesIO:
+    return make_workbook()
+
+
+@pytest.fixture
+def frame(workbook_bytes) -> pd.DataFrame:
+    from imbalance_calc.dataio import load_monthly_file
+
+    return load_monthly_file(workbook_bytes)
