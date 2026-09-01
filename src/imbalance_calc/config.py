@@ -16,6 +16,7 @@ DATA_DIR = BASE_DIR / "data"
 INPUT_DIR = DATA_DIR / "input"
 OUTPUT_DIR = DATA_DIR / "output"
 SAMPLES_DIR = DATA_DIR / "samples"
+STORE_DIR = Path(os.getenv("IC_STORE_DIR", DATA_DIR / "store"))
 REPORTS_DIR = BASE_DIR / "reports"
 
 #: Поріг, вище якого доба потрапляє в окремий аналіз, грн (без ПДВ).
@@ -28,7 +29,7 @@ DEFAULT_K_E = float(os.getenv("IC_K_E", "5"))
 DEFAULT_ALPHA = float(os.getenv("IC_ALPHA", "100"))
 
 #: Коефіцієнт ціни небалансу K_im за Правилами ринку (частка, не відсотки).
-#: Значення 0,05 звірене з виставленим рахунком за липень 2026 — див. розділ 12
+#: Значення 0,05 звірене з виставленим рахунком за липень 2026 — див. розділ 13
 #: docs/METHODOLOGY.md.
 DEFAULT_K_IM = float(os.getenv("IC_K_IM", "0.05"))
 

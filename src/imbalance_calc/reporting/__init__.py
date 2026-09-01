@@ -6,6 +6,7 @@ from .summary import (
     compare,
     daily_comparison,
     daily_display,
+    duration,
     hourly_display,
     money,
     summary_text,
@@ -27,4 +28,5 @@ __all__ = [
     "daily_comparison",
     "money",
     "volume",
+    "duration",
 ]

@@ -19,6 +19,12 @@ def volume(value: float, digits: int = 3) -> str:
     return money(value, digits)
 
 
+def duration(hours: float) -> str:
+    """Форматувати тривалість у вигляді «33 год 51 хв»."""
+    total_minutes = int(round(hours * 60))
+    return f"{total_minutes // 60} год {total_minutes % 60:02d} хв"
+
+
 def totals_rows(result: SettlementResult) -> list[tuple[str, str]]:
     """Рядки підсумкової таблиці, включно з ПДВ."""
     rate = result.settings.vat_rate * 100
@@ -29,6 +35,8 @@ def totals_rows(result: SettlementResult) -> list[tuple[str, str]]:
         ("Сальдо відхилення, МВт·год", volume(result.total_deviation_mwh)),
         ("Сума відхилень за модулем, МВт·год", volume(result.total_abs_deviation_mwh)),
         ("Годин з платежем", f"{result.billable_hours} з {result.hours_total}"),
+        ("Всього обмеження, год.хв", duration(result.total_curtail_hours)),
+        ("Всього обмежено виробіток, МВт·год", volume(result.total_curtailed_mwh)),
         ("Платіж за небаланси без ПДВ, грн", money(result.total_net)),
         (f"ПДВ {rate:g} %, грн", money(result.vat)),
         ("Всього з ПДВ, грн", money(result.total_gross)),
@@ -39,9 +47,11 @@ def daily_display(result: SettlementResult) -> pd.DataFrame:
     """Добова таблиця у вигляді для показу користувачу."""
     frame = result.daily.copy()
     frame["date"] = pd.to_datetime(frame["date"]).dt.strftime("%d.%m.%Y")
+    frame["curtail_hours"] = frame["curtail_hours"].map(duration)
     frame = frame[
         [
             "date", "w_pr", "w_f", "dev", "w_alpha",
+            "curtail_hours", "curtailed_mwh",
             "hours_billed", "max_hour_cieq", "cieq", "share_pct", "exceeds_threshold",
         ]
     ]
@@ -53,7 +63,7 @@ def hourly_display(hours: pd.DataFrame) -> pd.DataFrame:
     frame = hours.copy()
     frame["date"] = pd.to_datetime(frame["date"]).dt.strftime("%d.%m.%Y")
     columns = [
-        "date", "hour", "w_pr", "w_f", "d_w", "dev", "dev_pct", "w_alpha",
+        "date", "hour", "w_pr", "w_f", "d_w", "curtail_hours", "dev", "dev_pct", "w_alpha",
         "p_dam", "imsp", "w_group", "ieq_gb", "scenario", "cieq",
     ]
     return frame[columns].rename(columns=COLUMN_TITLES)
@@ -81,6 +91,8 @@ def compare(a: SettlementResult, b: SettlementResult) -> pd.DataFrame:
             "Сальдо відхилення, МВт·год": r.total_deviation_mwh,
             "Відхилення за модулем, МВт·год": r.total_abs_deviation_mwh,
             "Годин з платежем": r.billable_hours,
+            "Обмеження, год": r.total_curtail_hours,
+            "Обмежено виробіток, МВт·год": r.total_curtailed_mwh,
             "Діб понад поріг": len(r.alert_days),
             "Платіж без ПДВ, грн": r.total_net,
             "ПДВ, грн": r.vat,
@@ -100,8 +112,9 @@ def compare(a: SettlementResult, b: SettlementResult) -> pd.DataFrame:
         }
     )
     frame["Різниця"] = frame[label_b] - frame[label_a]
-    base = frame[label_a].replace(0, pd.NA)
-    frame["Зміна, %"] = (frame["Різниця"] / base * 100).astype(float).round(1)
+    # Нульова база (показника не було в жодному місяці) дає порожню зміну, не помилку
+    base = frame[label_a].replace(0, float("nan"))
+    frame["Зміна, %"] = (frame["Різниця"] / base * 100).round(1)
     return frame
 
 

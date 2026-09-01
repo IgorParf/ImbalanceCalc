@@ -43,3 +43,7 @@ reports/*
 # Секрети / локальні налаштування
 .env
 .streamlit/secrets.toml
+
+# Локальне сховище розібраних періодів
+data/store/*
+!data/store/.gitkeep

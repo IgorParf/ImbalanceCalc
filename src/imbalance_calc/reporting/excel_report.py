@@ -38,6 +38,6 @@ def build_excel_report(result: SettlementResult, directory: Path | str | None = 
     """Зберегти xlsx-звіт у папку ``reports/`` і повернути шлях до файлу."""
     target_dir = Path(directory) if directory else REPORTS_DIR
     target_dir.mkdir(parents=True, exist_ok=True)
-    path = target_dir / f"nebalansy_{result.period_key}.xlsx"
+    path = target_dir / f"imbalance-report_{result.period_key}.xlsx"
     path.write_bytes(build_excel_bytes(result))
     return path

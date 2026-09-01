@@ -11,6 +11,7 @@ import altair as alt  # noqa: E402
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
+from imbalance_calc import store  # noqa: E402
 from imbalance_calc.core import worst_hours  # noqa: E402
 from imbalance_calc.dataio.schema import COLUMN_TITLES  # noqa: E402
 from imbalance_calc.exceptions import ImbalanceCalcError  # noqa: E402
@@ -18,6 +19,7 @@ from imbalance_calc.reporting import (  # noqa: E402
     compare,
     daily_comparison,
     daily_display,
+    duration,
     money,
     summary_text,
     volume,
@@ -25,12 +27,10 @@ from imbalance_calc.reporting import (  # noqa: E402
 from imbalance_calc.ui.components import (  # noqa: E402
     KEY_COMPARE,
     daily_chart,
-    page_config,
+    import_upload,
     require_result,
-    run_calculation,
+    result_for,
 )
-
-page_config("Аналіз небалансів")
 
 st.title("📊 Аналіз небалансів")
 
@@ -52,13 +52,21 @@ with tab_general:
     columns = st.columns(4)
     columns[0].metric("Платіж без ПДВ, грн", money(result.total_net))
     columns[1].metric("Всього з ПДВ, грн", money(result.total_gross))
-    columns[2].metric(
-        "Середня вартість, грн/МВт·год", money(result.avg_cost_per_mwh)
-    )
+    columns[2].metric("Середня вартість, грн/МВт·год", money(result.avg_cost_per_mwh))
     columns[3].metric(
         "Частка тарифікованих годин",
         f"{result.billable_hours / result.hours_total * 100:.1f} %",
     )
+
+    columns = st.columns(3)
+    columns[0].metric("Всього обмеження, год.хв", duration(result.total_curtail_hours))
+    columns[1].metric("Всього обмежено виробіток, МВт·год", volume(result.total_curtailed_mwh))
+    lost_share = (
+        result.total_curtailed_mwh / (result.total_actual_mwh + result.total_curtailed_mwh) * 100
+        if result.total_actual_mwh + result.total_curtailed_mwh
+        else 0.0
+    )
+    columns[2].metric("Втрачено від потенціалу", f"{lost_share:.1f} %")
 
     st.markdown("##### Концентрація платежу")
     ordered = result.daily.sort_values("cieq", ascending=False).reset_index(drop=True)
@@ -119,9 +127,7 @@ with tab_general:
             x=alt.X("day:O", title="доба"),
             y=alt.Y("hour:O", title="година"),
             color=alt.Color(
-                "cieq:Q",
-                title="грн",
-                scale=alt.Scale(scheme="orangered", domainMin=0),
+                "cieq:Q", title="грн", scale=alt.Scale(scheme="orangered", domainMin=0)
             ),
             tooltip=[
                 alt.Tooltip("day:O", title="Доба"),
@@ -160,10 +166,6 @@ with tab_daily:
         st.info(f"Таких діб немає — усі добові платежі не перевищують {threshold} грн.")
     else:
         rate = settings.vat_rate
-        summary = alerts.assign(
-            vat=alerts["cieq"] * rate,
-            gross=alerts["cieq"] * (1 + rate),
-        )
         columns = st.columns(3)
         columns[0].metric("Діб понад поріг", f"{len(alerts)} з {len(result.daily)}")
         columns[1].metric("Сума без ПДВ, грн", money(float(alerts["cieq"].sum())))
@@ -173,13 +175,20 @@ with tab_daily:
             if result.total_net
             else "0,0 %",
         )
-        display = summary[
-            ["date", "cieq", "vat", "gross", "hours_billed", "max_hour_cieq", "dev", "share_pct"]
+        display = alerts.assign(
+            vat=alerts["cieq"] * rate, gross=alerts["cieq"] * (1 + rate)
+        )[
+            [
+                "date", "cieq", "vat", "gross", "hours_billed",
+                "curtail_hours", "curtailed_mwh", "dev", "share_pct",
+            ]
         ].copy()
         display["date"] = pd.to_datetime(display["date"]).dt.strftime("%d.%m.%Y")
+        display["curtail_hours"] = display["curtail_hours"].map(duration)
         display.columns = [
-            "Доба", "Платіж без ПДВ, грн", "ПДВ, грн", "З ПДВ, грн",
-            "Годин з платежем", "Макс. за годину, грн", "Відхилення, МВт·год", "Частка у місяці, %",
+            "Доба", "Платіж без ПДВ, грн", "ПДВ, грн", "З ПДВ, грн", "Годин з платежем",
+            "Обмеження, год.хв", "Обмежено виробіток, МВт·год",
+            "Відхилення, МВт·год", "Частка у місяці, %",
         ]
         st.dataframe(display, use_container_width=True, hide_index=True)
 
@@ -187,23 +196,21 @@ with tab_daily:
     days = list(result.daily["date"])
     default_index = days.index(alerts.iloc[0]["date"]) if not alerts.empty else 0
     chosen = st.selectbox(
-        "Оберіть добу",
-        days,
-        index=default_index,
-        format_func=lambda d: f"{d:%d.%m.%Y}",
+        "Оберіть добу", days, index=default_index, format_func=lambda d: f"{d:%d.%m.%Y}"
     )
     day_hours = result.hours[result.hours["date"] == chosen]
     day_row = result.daily[result.daily["date"] == chosen].iloc[0]
 
-    columns = st.columns(4)
+    columns = st.columns(5)
     columns[0].metric("Платіж без ПДВ, грн", money(day_row["cieq"]))
     columns[1].metric("З ПДВ, грн", money(day_row["cieq"] * (1 + settings.vat_rate)))
     columns[2].metric("Відхилення, МВт·год", volume(day_row["dev"]))
-    columns[3].metric("Годин з платежем", int(day_row["hours_billed"]))
+    columns[3].metric("Обмеження, год.хв", duration(day_row["curtail_hours"]))
+    columns[4].metric("Обмежено, МВт·год", volume(day_row["curtailed_mwh"]))
 
-    detail = day_hours.assign(
-        Прогноз=day_hours["w_pr"], Факт=day_hours["w_f"]
-    ).melt(id_vars="hour", value_vars=["Прогноз", "Факт"], var_name="Ряд", value_name="МВт·год")
+    detail = day_hours.assign(Прогноз=day_hours["w_pr"], Факт=day_hours["w_f"]).melt(
+        id_vars="hour", value_vars=["Прогноз", "Факт"], var_name="Ряд", value_name="МВт·год"
+    )
     profile = (
         alt.Chart(detail)
         .mark_line(point=True)
@@ -229,6 +236,7 @@ with tab_daily:
                 alt.Tooltip("cieq:Q", title="Платіж, грн", format=",.2f"),
                 alt.Tooltip("dev:Q", title="Відхилення, МВт·год", format=",.3f"),
                 alt.Tooltip("dev_pct:Q", title="Відхилення, %", format=",.1f"),
+                alt.Tooltip("d_w:Q", title="Обмежено, МВт·год", format=",.3f"),
                 alt.Tooltip("imsp:Q", title="Ціна небалансу", format=",.2f"),
                 alt.Tooltip("p_dam:Q", title="Ціна РДН", format=",.2f"),
             ],
@@ -243,32 +251,52 @@ with tab_daily:
 
 # -------------------------------------------------------------- порівняння --
 with tab_compare:
-    st.write(
-        "Завантажте місячний файл іншого періоду, щоб порівняти його з поточним "
-        f"({result.month_label}). Розрахунок другого файлу виконується з тими самими параметрами."
-    )
-    other_file = st.file_uploader(
-        "Файл для порівняння (xlsx)", type=["xlsx", "xlsm"], key="compare_upload"
-    )
+    candidates = [e for e in store.list_periods() if e.period_key != result.period_key]
+    default_entry = store.comparison_candidate(result.period_key)
 
-    if other_file is None:
-        st.session_state.pop(KEY_COMPARE, None)
+    if candidates:
+        keys = [entry.period_key for entry in candidates]
+        labels = {entry.period_key: entry.month_label for entry in candidates}
+        index = keys.index(default_entry.period_key) if default_entry else 0
+        chosen_key = st.selectbox(
+            "Період для порівняння",
+            keys,
+            index=index,
+            format_func=lambda key: labels[key],
+            help="За замовчуванням обирається попередній місяць.",
+        )
+        if default_entry and chosen_key == default_entry.period_key:
+            st.caption(f"Попередній місяць у сховищі: {labels[chosen_key]}.")
+    else:
+        chosen_key = None
+        st.info(
+            "У сховищі лише один період. Завантажте файл іншого місяця — "
+            "порівняння за замовчуванням робиться з попереднім місяцем."
+        )
+
+    with st.expander("Завантажити ще один місяць", expanded=not candidates):
+        other_file = st.file_uploader(
+            "Файл для порівняння (xlsx)", type=["xlsx", "xlsm"], key="compare_upload"
+        )
+        if other_file is not None:
+            try:
+                with st.spinner("Читання файлу…"):
+                    entry = import_upload(other_file)
+            except ImbalanceCalcError as error:
+                st.error(f"Не вдалося обробити файл: {error}")
+                st.stop()
+            st.success(f"Додано до сховища: {entry.month_label}.")
+            chosen_key = entry.period_key
+
+    if chosen_key is None:
         st.stop()
 
-    try:
-        other = run_calculation(other_file, settings)
-    except ImbalanceCalcError as error:
-        st.error(f"Не вдалося обробити файл: {error}")
-        st.stop()
-
+    other = result_for(chosen_key, settings)
     st.session_state[KEY_COMPARE] = other
-    st.success(f"Файл для порівняння: {other.month_label}, {other.hours_total} годин.")
 
     delta = other.total_net - result.total_net
     columns = st.columns(3)
-    columns[0].metric(
-        f"{result.month_label}, грн без ПДВ", money(result.total_net)
-    )
+    columns[0].metric(f"{result.month_label}, грн без ПДВ", money(result.total_net))
     columns[1].metric(
         f"{other.month_label}, грн без ПДВ",
         money(other.total_net),
@@ -276,8 +304,7 @@ with tab_compare:
         delta_color="inverse",
     )
     columns[2].metric(
-        "Зміна",
-        f"{delta / result.total_net * 100:+.1f} %" if result.total_net else "—",
+        "Зміна", f"{delta / result.total_net * 100:+.1f} %" if result.total_net else "—"
     )
 
     st.markdown("##### Показники")
@@ -312,11 +339,11 @@ with tab_compare:
     for column, item in ((left, result), (right, other)):
         with column:
             st.caption(item.month_label)
-            alerts = item.alert_days.sort_values("cieq", ascending=False)
-            if alerts.empty:
+            item_alerts = item.alert_days.sort_values("cieq", ascending=False)
+            if item_alerts.empty:
                 st.info("Немає")
             else:
-                frame = alerts[["date", "cieq", "share_pct"]].copy()
+                frame = item_alerts[["date", "cieq", "share_pct"]].copy()
                 frame["date"] = pd.to_datetime(frame["date"]).dt.strftime("%d.%m.%Y")
                 frame.columns = ["Доба", "Платіж без ПДВ, грн", "Частка у місяці, %"]
                 st.dataframe(frame, use_container_width=True, hide_index=True)

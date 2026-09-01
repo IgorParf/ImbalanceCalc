@@ -4,6 +4,7 @@ from .daily import build_daily, filter_alert_days, worst_hours
 from .methodology import (
     accounted_deviation,
     calculate_hourly,
+    curtailment_duration,
     group_cost,
     participant_share,
     recalculate,
@@ -12,6 +13,7 @@ from .settlement import calculate_from_file, calculate_settlement, correction_pa
 
 __all__ = [
     "group_cost",
+    "curtailment_duration",
     "accounted_deviation",
     "participant_share",
     "calculate_hourly",

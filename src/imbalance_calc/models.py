@@ -84,6 +84,26 @@ class SettlementResult:
     def total_abs_deviation_mwh(self) -> float:
         return float(self.hours["dev"].abs().sum())
 
+    # --- обмеження ОСП ----------------------------------------------------
+    @property
+    def total_curtailed_mwh(self) -> float:
+        """Всього обмежено виробіток за місяць, МВт·год."""
+        return float(self.hours["curtailed_mwh"].sum())
+
+    @property
+    def total_curtail_hours(self) -> float:
+        """Всього обмеження за місяць, год (еквівалентна тривалість)."""
+        return float(self.hours["curtail_hours"].sum())
+
+    @property
+    def curtailed_periods(self) -> int:
+        """Кількість розрахункових годин, у яких діяло обмеження."""
+        return int((self.hours["d_w"] > 0).sum())
+
+    @property
+    def curtailed_days(self) -> int:
+        return int(self.daily.loc[self.daily["curtailed_mwh"] > 0].shape[0])
+
     # --- аналітика --------------------------------------------------------
     @property
     def alert_days(self) -> pd.DataFrame:

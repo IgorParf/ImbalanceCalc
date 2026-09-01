@@ -25,10 +25,15 @@ def build_daily(
         w_alpha=("w_alpha", "sum"),
         cieq=("cieq", "sum"),
         max_hour_cieq=("cieq", "max"),
+        curtailed_mwh=("curtailed_mwh", "sum"),
+        curtail_hours=("curtail_hours", "sum"),
     )
     grouped["abs_dev"] = hours.groupby("date")["dev"].apply(lambda s: s.abs().sum()).to_numpy()
     grouped["hours_billed"] = (
         hours.assign(_paid=hours["cieq"] > 0).groupby("date")["_paid"].sum().to_numpy()
+    )
+    grouped["curtailed_periods"] = (
+        hours.assign(_cut=hours["d_w"] > 0).groupby("date")["_cut"].sum().to_numpy()
     )
     grouped["exceeds_threshold"] = grouped["cieq"] > threshold_uah
 

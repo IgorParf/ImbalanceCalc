@@ -83,6 +83,21 @@ def workbook_bytes() -> io.BytesIO:
 
 
 @pytest.fixture
+def curtailed_frame() -> pd.DataFrame:
+    """Дві доби, у першій — три години з обмеженнями ОСП різної глибини."""
+    from imbalance_calc.dataio import load_monthly_file
+
+    values = _base_values()
+    # (година, факт, ΔW): 0,5 год + 0,25 год + 1,0 год = 1,75 год обмежень
+    for hour, actual, curtailed in ((9, 5.0, 5.0), (10, 9.0, 3.0), (11, 0.0, 8.0)):
+        values["w_f"][0][hour - 1] = actual
+        values["d_w"][0][hour - 1] = curtailed
+        values["w_s"][0][hour - 1] = actual - values["w_pr"][0][hour - 1]
+        values["w_s_delta"][0][hour - 1] = values["w_s"][0][hour - 1] + curtailed
+    return load_monthly_file(make_workbook(values))
+
+
+@pytest.fixture
 def frame(workbook_bytes) -> pd.DataFrame:
     from imbalance_calc.dataio import load_monthly_file
 

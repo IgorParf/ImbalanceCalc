@@ -32,7 +32,7 @@ from reportlab.platypus import (  # noqa: E402
 
 from ..config import REPORTS_DIR  # noqa: E402
 from ..models import SettlementResult  # noqa: E402
-from .summary import money, totals_rows, volume  # noqa: E402
+from .summary import duration, money, totals_rows, volume  # noqa: E402
 
 FONT_REGULAR = "Report"
 FONT_BOLD = "Report-Bold"
@@ -162,7 +162,8 @@ def _totals_table(result: SettlementResult) -> Table:
 def _daily_table(result: SettlementResult) -> Table:
     header = [
         "Доба", "Прогноз,\nМВт·год", "Факт,\nМВт·год", "Відхилення,\nМВт·год",
-        "Годин з\nплатежем", "Макс. за\nгодину, грн", "Платіж без\nПДВ, грн", "Частка,\n%",
+        "Обмеження,\nгод.хв", "Обмежено\nвиробіток,\nМВт·год",
+        "Годин з\nплатежем", "Платіж без\nПДВ, грн", "Частка,\n%",
     ]
     rows = [header]
     alert_rows: list[int] = []
@@ -172,17 +173,20 @@ def _daily_table(result: SettlementResult) -> Table:
         rows.append([
             row.date.strftime("%d.%m.%Y"),
             volume(row.w_pr), volume(row.w_f), volume(row.dev),
-            str(int(row.hours_billed)), money(row.max_hour_cieq),
+            duration(row.curtail_hours), volume(row.curtailed_mwh),
+            str(int(row.hours_billed)),
             money(row.cieq), f"{row.share_pct:.1f}",
         ])
     rows.append([
         "Разом",
         volume(result.total_forecast_mwh), volume(result.total_actual_mwh),
-        volume(result.total_deviation_mwh), str(result.billable_hours), "",
+        volume(result.total_deviation_mwh),
+        duration(result.total_curtail_hours), volume(result.total_curtailed_mwh),
+        str(result.billable_hours),
         money(result.total_net), "100,0",
     ])
 
-    widths = [26, 30, 30, 32, 24, 34, 34, 20]
+    widths = [24, 28, 28, 30, 26, 30, 24, 32, 18]
     table = Table(rows, colWidths=[w * mm for w in widths], repeatRows=1, hAlign="LEFT")
     style = _table_style()
     style.add("ALIGN", (0, 1), (0, -1), "LEFT")
@@ -301,8 +305,8 @@ def build_pdf_bytes(result: SettlementResult) -> bytes:
 
 
 def report_filename(result: SettlementResult) -> str:
-    """Ім'я файлу звіту: ``nebalansy_2026-07_20260901-1215.pdf``."""
-    return f"nebalansy_{result.period_key}_{datetime.now():%Y%m%d-%H%M}.pdf"
+    """Ім'я файлу звіту: ``imbalance-report_2026-07_20260901-1215.pdf``."""
+    return f"imbalance-report_{result.period_key}_{datetime.now():%Y%m%d-%H%M}.pdf"
 
 
 def build_pdf_report(result: SettlementResult, directory: Path | str | None = None) -> Path:

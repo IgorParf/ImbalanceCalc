@@ -10,6 +10,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from .. import config, store
 from ..config import (
     DAILY_ALERT_THRESHOLD_UAH,
     DEFAULT_ALPHA,
@@ -18,12 +19,14 @@ from ..config import (
     DEFAULT_VAT_RATE,
     CalculationSettings,
 )
-from ..core import calculate_from_file
+from ..core import calculate_settlement
+from ..dataio import load_monthly_file, validate_frame
 from ..models import SettlementResult
-from ..reporting import money, volume
+from ..reporting import duration, money, volume
 
 #: Ключі у ``st.session_state``.
 KEY_RESULT = "result"
+KEY_PERIOD = "period_key"
 KEY_COMPARE = "compare_result"
 KEY_PDF = "pdf_report"
 KEY_XLSX = "xlsx_report"
@@ -31,20 +34,146 @@ KEY_SIGNATURE = "result_signature"
 
 
 def reset_reports() -> None:
-    """Скинути раніше сформовані звіти (файл або параметри змінилися)."""
+    """Скинути раніше сформовані звіти (період або параметри змінилися)."""
     st.session_state.pop(KEY_PDF, None)
     st.session_state.pop(KEY_XLSX, None)
 
 
 def bootstrap_path() -> None:
-    """Додати ``src`` у ``sys.path`` — потрібно для запуску сторінок Streamlit."""
+    """Додати ``src`` у ``sys.path`` — потрібно для окремого запуску сторінки."""
     root = Path(__file__).resolve().parents[3]
     if str(root / "src") not in sys.path:
         sys.path.insert(0, str(root / "src"))
 
 
-def page_config(title: str) -> None:
-    st.set_page_config(page_title=title, page_icon="⚡", layout="wide")
+# ------------------------------------------------------------------ дані ----
+
+
+def _cache_token(period_key: str) -> float:
+    """Мітка часу файлу у сховищі — інвалідує кеш після повторного імпорту."""
+    path = config.STORE_DIR / f"{period_key}.parquet"
+    return path.stat().st_mtime if path.exists() else 0.0
+
+
+@st.cache_data(show_spinner=False)
+def _load_frame(period_key: str, token: float) -> pd.DataFrame:
+    return store.load_period(period_key)
+
+
+@st.cache_data(show_spinner=False)
+def _validate(period_key: str, token: float) -> list[str]:
+    return validate_frame(store.load_period(period_key))
+
+
+def import_upload(uploaded) -> store.StoredPeriod:
+    """Розібрати завантажений xlsx і покласти в сховище.
+
+    Якщо файл з таким самим вмістом уже імпортовано, повторне читання не
+    виконується — повертається наявний запис.
+    """
+    payload = uploaded.getvalue()
+    digest = store.file_digest(payload)
+    existing = store.find_by_hash(digest)
+    if existing is not None:
+        return existing
+    frame = load_monthly_file(io.BytesIO(payload))
+    return store.save_period(frame, uploaded.name, digest)
+
+
+def result_for(period_key: str, settings: CalculationSettings) -> SettlementResult:
+    """Розрахунок за збереженим періодом.
+
+    Читання parquet кешується, сам розрахунок займає близько 45 мс, тому
+    зміна параметрів у бічній панелі перераховується миттєво і без
+    повторного завантаження файлу.
+    """
+    token = _cache_token(period_key)
+    frame = _load_frame(period_key, token)
+    entry = store.get_period(period_key)
+    return calculate_settlement(
+        frame,
+        settings,
+        source_name=entry.source_name if entry else "",
+        warnings=_validate(period_key, token),
+    )
+
+
+def period_picker(label: str = "Розрахунковий період") -> str | None:
+    """Вибір періоду зі сховища плюс завантаження нового файлу.
+
+    Повертає ключ обраного періоду або ``None``, якщо сховище порожнє.
+    """
+    periods = store.list_periods()
+
+    with st.expander("Завантажити файл гарантованого покупця", expanded=not periods):
+        uploaded = st.file_uploader(
+            "Місячний файл ГП (xlsx)",
+            type=["xlsx", "xlsm"],
+            help="Файл з 15 аркушами: прогноз, факт, ΔW, ціни, сальдовані обсяги, IEQ_GB.",
+            key="upload_main",
+        )
+        if uploaded is not None:
+            with st.spinner("Читання файлу…"):
+                entry = import_upload(uploaded)
+            st.success(
+                f"{entry.month_label}: {entry.days} діб, {entry.hours} годин. "
+                "Дані збережено — наступного разу файл не знадобиться."
+            )
+            st.session_state[KEY_PERIOD] = entry.period_key
+            periods = store.list_periods()
+
+    if not periods:
+        st.info("Сховище порожнє. Завантажте місячний файл, щоб виконати розрахунок.")
+        return None
+
+    keys = [entry.period_key for entry in periods]
+    labels = {entry.period_key: entry.month_label for entry in periods}
+    current = st.session_state.get(KEY_PERIOD)
+    index = keys.index(current) if current in keys else 0
+
+    chosen = st.selectbox(
+        label, keys, index=index, format_func=lambda key: labels[key], key="period_select"
+    )
+    st.session_state[KEY_PERIOD] = chosen
+    return chosen
+
+
+def store_manager() -> None:
+    """Перелік збережених періодів з можливістю видалення."""
+    periods = store.list_periods()
+    if not periods:
+        return
+    with st.expander(f"Сховище даних ({len(periods)} періодів)", expanded=False):
+        st.caption(
+            f"Розібрані дані лежать у `{config.STORE_DIR}` у форматі parquet. "
+            "Вихідні xlsx після імпорту не потрібні."
+        )
+        frame = pd.DataFrame(
+            {
+                "Період": [e.month_label for e in periods],
+                "Діб": [e.days for e in periods],
+                "Годин": [e.hours for e in periods],
+                "Файл": [e.source_name for e in periods],
+                "Імпортовано": [e.imported_at.replace("T", " ") for e in periods],
+            }
+        )
+        st.dataframe(frame, use_container_width=True, hide_index=True)
+
+        columns = st.columns([2, 1])
+        target = columns[0].selectbox(
+            "Видалити період",
+            [e.period_key for e in periods],
+            format_func=lambda key: dict((e.period_key, e.month_label) for e in periods)[key],
+            key="delete_select",
+        )
+        if columns[1].button("Видалити", use_container_width=True):
+            store.delete_period(target)
+            st.session_state.pop(KEY_PERIOD, None)
+            reset_reports()
+            st.rerun()
+
+
+# ---------------------------------------------------------- параметри UI ----
 
 
 def settings_sidebar(key_prefix: str = "main") -> CalculationSettings:
@@ -52,8 +181,8 @@ def settings_sidebar(key_prefix: str = "main") -> CalculationSettings:
     with st.sidebar:
         st.header("Параметри розрахунку")
         st.caption(
-            "Величини, яких немає у файлі ГП. Значення за замовчуванням треба "
-            "звіряти з договором і чинною редакцією Закону."
+            "Величини, яких немає у файлі ГП. Значення за замовчуванням звірені "
+            "з виставленим рахунком за липень 2026."
         )
         k_e = st.number_input(
             "K_e — допустиме відхилення, %",
@@ -90,26 +219,32 @@ def settings_sidebar(key_prefix: str = "main") -> CalculationSettings:
     )
 
 
-@st.cache_data(show_spinner=False)
-def _cached_result(
-    payload: bytes, name: str, settings: CalculationSettings
-) -> SettlementResult:
-    return calculate_from_file(io.BytesIO(payload), settings, source_name=name)
-
-
-def run_calculation(uploaded, settings: CalculationSettings) -> SettlementResult:
-    """Виконати розрахунок для завантаженого файлу (з кешуванням)."""
-    return _cached_result(uploaded.getvalue(), uploaded.name, settings)
+# ------------------------------------------------------------- показники ----
 
 
 def render_totals(result: SettlementResult) -> None:
-    """Картки з місячними підсумками."""
+    """Картки з місячними підсумками обсягів."""
     columns = st.columns(4)
     columns[0].metric("Прогноз, МВт·год", volume(result.total_forecast_mwh))
     columns[1].metric("Факт, МВт·год", volume(result.total_actual_mwh))
     columns[2].metric("Сальдо відхилення, МВт·год", volume(result.total_deviation_mwh))
-    columns[3].metric(
-        "Годин з платежем", f"{result.billable_hours} з {result.hours_total}"
+    columns[3].metric("Годин з платежем", f"{result.billable_hours} з {result.hours_total}")
+
+
+def render_curtailment(result: SettlementResult) -> None:
+    """Картки з обмеженнями ОСП за місяць."""
+    columns = st.columns(3)
+    columns[0].metric("Всього обмеження, год.хв", duration(result.total_curtail_hours))
+    columns[1].metric(
+        "Всього обмежено виробіток, МВт·год", volume(result.total_curtailed_mwh)
+    )
+    columns[2].metric(
+        "Діб з обмеженнями", f"{result.curtailed_days} з {len(result.daily)}"
+    )
+    st.caption(
+        f"Тривалість — еквівалентна: у {result.curtailed_periods} год. з ΔW > 0 враховано "
+        "частку години під обмеженням ΔW / (факт + ΔW), бо файл ГП подає обсяг "
+        "невідпущеної енергії, а не час дії команди ОСП."
     )
 
 
@@ -146,6 +281,7 @@ def daily_chart(result: SettlementResult) -> alt.Chart:
                 alt.Tooltip("Платіж, грн:Q", format=",.2f"),
                 alt.Tooltip("hours_billed:Q", title="Годин з платежем"),
                 alt.Tooltip("dev:Q", title="Відхилення, МВт·год", format=",.3f"),
+                alt.Tooltip("curtailed_mwh:Q", title="Обмежено, МВт·год", format=",.3f"),
             ],
         )
     )
@@ -170,5 +306,5 @@ def require_result(key: str = KEY_RESULT) -> SettlementResult | None:
     """Отримати результат із сесії або показати підказку."""
     result = st.session_state.get(key)
     if result is None:
-        st.info("Спочатку завантажте файл з даними на сторінці «Розрахунок».")
+        st.info("Спочатку оберіть період на сторінці «Головна».")
     return result

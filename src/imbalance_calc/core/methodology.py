@@ -36,6 +36,25 @@ def group_cost(
     return np.where(w > 0, surplus, np.where(w < 0, deficit, 0.0))
 
 
+def curtailment_duration(w_f: pd.Series, d_w: pd.Series) -> np.ndarray:
+    """Еквівалентна тривалість обмеження в межах години, год.
+
+    Файл ГП подає обсяг невідпущеної енергії, а не час дії команди ОСП. Якщо
+    обмеження діяло частину години, ``ΔW`` менший за потенційний виробіток —
+    відношення ``ΔW / (W^F + ΔW)`` і дає частку години під обмеженням.
+    Наприклад, ΔW = 4,120 при фактичних 1,384 МВт·год означає потенціал
+    5,504 МВт·год і 0,749 год = 45 хв обмеження.
+
+    Величина суто інформативна: у розрахунок платежу вона не входить.
+    """
+    actual = np.asarray(w_f, dtype=float)
+    curtailed = np.asarray(d_w, dtype=float)
+    potential = actual + curtailed
+    with np.errstate(divide="ignore", invalid="ignore"):
+        share = np.where(potential > 0, np.minimum(1.0, curtailed / potential), 1.0)
+    return np.where(curtailed > 0, share, 0.0)
+
+
 def accounted_deviation(
     w_pr: pd.Series,
     w_f: pd.Series,
@@ -110,6 +129,10 @@ def calculate_hourly(df: pd.DataFrame, settings: CalculationSettings) -> pd.Data
     sum_sp = np.where(use_base, out["sum_w_sp"], out["sum_w_sp_delta"])
     out["sum_sn_used"] = sum_sn
     out["sum_sp_used"] = sum_sp
+
+    # Обмеження ОСП: обсяг та еквівалентна тривалість (для звітності, не для платежу)
+    out["curtailed_mwh"] = out["d_w"].clip(lower=0.0)
+    out["curtail_hours"] = curtailment_duration(out["w_f"], out["d_w"])
 
     # Глава 3, п. 3.1: враховане відхилення Учасника
     out["dev"] = out["w_f"] - out["w_pr"] + out["d_w"]
