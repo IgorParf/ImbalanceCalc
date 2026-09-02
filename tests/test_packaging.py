@@ -74,6 +74,19 @@ def test_collect_submodules_covers_required():
     assert package_modules <= collected
 
 
+def test_selfcheck_is_awaited_in_ci():
+    """Віконний .exe не блокує оболонку — потрібен явний Start-Process -Wait.
+
+    Виклик через «&» повертає керування одразу, і перевірка $LASTEXITCODE
+    стосується попередньої команди, а не самоперевірки.
+    """
+    workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    selfcheck = workflow[workflow.index("Самоперевірка збірки") :]
+    selfcheck = selfcheck[: selfcheck.index("- name:", 1)]
+    assert "Start-Process" in selfcheck and "-Wait" in selfcheck
+    assert "ExitCode" in selfcheck
+
+
 def test_app_entry_uses_absolute_page_paths():
     """Відносні шляхи ламаються у збірці: робочий каталог інший."""
     source = (ROOT / "app.py").read_text(encoding="utf-8")

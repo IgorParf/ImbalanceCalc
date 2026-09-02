@@ -50,8 +50,19 @@ jobs:
 
       - name: Самоперевірка збірки
         run: |
-          & ".\dist\ImbalanceCalc\ImbalanceCalc.exe" --selfcheck
-          if ($LASTEXITCODE -ne 0) { throw "Самоперевірка збірки провалена" }
+          # ImbalanceCalc.exe зібрано як віконний (console=False), тому оболонка
+          # НЕ чекає на його завершення: виклик через "&" повертає керування
+          # одразу, а $LASTEXITCODE стосується попередньої команди. Потрібен
+          # явний Start-Process -Wait, інакше крок «проходить» або падає
+          # випадково, не дочекавшись результату.
+          $check = Start-Process ".\dist\ImbalanceCalc\ImbalanceCalc.exe" `
+            -ArgumentList "--selfcheck" -Wait -PassThru
+          if ($check.ExitCode -ne 0) {
+            $log = "$env:LOCALAPPDATA\ImbalanceCalc\logs\desktop.log"
+            if (Test-Path $log) { Get-Content $log -Tail 20 }
+            throw "Самоперевірка збірки провалена (код $($check.ExitCode))"
+          }
+          Write-Host "Самоперевірка пройдена."
 
       - name: Інсталятор
         run: |
