@@ -75,15 +75,17 @@ def test_collect_submodules_covers_required():
 
 
 def test_selfcheck_is_awaited_in_ci():
-    """Віконний .exe не блокує оболонку — потрібен явний Start-Process -Wait.
+    """Віконний .exe не блокує оболонку — на нього треба чекати явно.
 
     Виклик через «&» повертає керування одразу, і перевірка $LASTEXITCODE
-    стосується попередньої команди, а не самоперевірки.
+    стосується попередньої команди, а не самоперевірки. Очікування має бути
+    з межею часу, інакше зависання з'їдає весь таймаут кроку.
     """
     workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
     selfcheck = workflow[workflow.index("Самоперевірка збірки") :]
     selfcheck = selfcheck[: selfcheck.index("- name:", 1)]
-    assert "Start-Process" in selfcheck and "-Wait" in selfcheck
+    assert "Start-Process" in selfcheck
+    assert "WaitForExit" in selfcheck, "очікування без межі часу"
     assert "ExitCode" in selfcheck
 
 

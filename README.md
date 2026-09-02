@@ -127,9 +127,9 @@ pip install -e ".[build]"
 
 | Артефакт | Розмір |
 |---|---|
-| `dist\ImbalanceCalc\` (застосунок) | 230 МБ |
-| `dist\ImbalanceCalc-0.1.0-setup.exe` | 70 МБ |
-| після встановлення | 235 МБ |
+| `dist\ImbalanceCalc\` (застосунок) | 199 МБ |
+| `dist\ImbalanceCalc-<версія>-setup.exe` | 65 МБ |
+| після встановлення | 200 МБ |
 
 | Файл | Призначення |
 |---|---|
