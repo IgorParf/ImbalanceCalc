@@ -96,7 +96,7 @@ with tab_general:
         )
         .properties(height=240)
     )
-    st.altair_chart(pareto, use_container_width=True)
+    st.altair_chart(pareto, width="stretch")
 
     st.markdown("##### Платіж за годинами доби")
     by_hour = hours.groupby("hour", as_index=False).agg(
@@ -116,7 +116,7 @@ with tab_general:
         )
         .properties(height=240)
     )
-    st.altair_chart(hour_chart, use_container_width=True)
+    st.altair_chart(hour_chart, width="stretch")
 
     st.markdown("##### Карта платежів «доба × година»")
     heat_source = hours.assign(day=pd.to_datetime(hours["date"]).dt.day)
@@ -139,12 +139,12 @@ with tab_general:
         )
         .properties(height=380)
     )
-    st.altair_chart(heatmap, use_container_width=True)
+    st.altair_chart(heatmap, width="stretch")
 
     st.markdown("##### Найдорожчі години")
     st.dataframe(
         worst_hours(hours, 15).rename(columns=COLUMN_TITLES),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -158,7 +158,7 @@ with tab_general:
 
 # ----------------------------------------------------------------- по добах --
 with tab_daily:
-    st.altair_chart(daily_chart(result), use_container_width=True)
+    st.altair_chart(daily_chart(result), width="stretch")
 
     alerts = result.alert_days.sort_values("cieq", ascending=False)
     st.markdown(f"##### Доби з платежем понад {threshold} грн")
@@ -190,7 +190,7 @@ with tab_daily:
             "Обмеження, год.хв", "Обмежено виробіток, МВт·год",
             "Відхилення, МВт·год", "Частка у місяці, %",
         ]
-        st.dataframe(display, use_container_width=True, hide_index=True)
+        st.dataframe(display, width="stretch", hide_index=True)
 
     st.markdown("##### Деталізація доби")
     days = list(result.daily["date"])
@@ -243,11 +243,11 @@ with tab_daily:
         )
         .properties(height=220)
     )
-    st.altair_chart(profile, use_container_width=True)
-    st.altair_chart(payment, use_container_width=True)
+    st.altair_chart(profile, width="stretch")
+    st.altair_chart(payment, width="stretch")
 
     st.markdown("##### Добові підсумки")
-    st.dataframe(daily_display(result), use_container_width=True, hide_index=True)
+    st.dataframe(daily_display(result), width="stretch", hide_index=True)
 
 # -------------------------------------------------------------- порівняння --
 with tab_compare:
@@ -313,7 +313,7 @@ with tab_compare:
         comparison.style.format(
             {col: "{:,.2f}" for col in comparison.columns if col != "Показник"}
         ),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -332,7 +332,7 @@ with tab_compare:
         )
         .properties(height=300)
     )
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width="stretch")
 
     st.markdown(f"##### Доби понад {threshold} грн")
     left, right = st.columns(2)
@@ -346,4 +346,4 @@ with tab_compare:
                 frame = item_alerts[["date", "cieq", "share_pct"]].copy()
                 frame["date"] = pd.to_datetime(frame["date"]).dt.strftime("%d.%m.%Y")
                 frame.columns = ["Доба", "Платіж без ПДВ, грн", "Частка у місяці, %"]
-                st.dataframe(frame, use_container_width=True, hide_index=True)
+                st.dataframe(frame, width="stretch", hide_index=True)

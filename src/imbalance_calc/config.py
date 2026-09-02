@@ -115,7 +115,7 @@ SAMPLES_DIR = BASE_DIR / "data" / "samples"
 REPORTS_DIR = downloads_dir()
 
 #: Поріг, вище якого доба потрапляє в окремий аналіз, грн (без ПДВ).
-DAILY_ALERT_THRESHOLD_UAH = float(os.getenv("IC_DAILY_THRESHOLD", "10000"))
+DAILY_ALERT_THRESHOLD_UAH = float(os.getenv("IC_DAILY_THRESHOLD", "1000"))
 
 #: Допустиме відхилення K_e для типу генерації ВДЕ, %.
 DEFAULT_K_E = float(os.getenv("IC_K_E", "5"))

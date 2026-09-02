@@ -159,7 +159,7 @@ def store_manager() -> None:
                 "Імпортовано": [e.imported_at.replace("T", " ") for e in periods],
             }
         )
-        st.dataframe(frame, use_container_width=True, hide_index=True)
+        st.dataframe(frame, width="stretch", hide_index=True)
 
         columns = st.columns([2, 1])
         target = columns[0].selectbox(
@@ -168,7 +168,7 @@ def store_manager() -> None:
             format_func=lambda key: dict((e.period_key, e.month_label) for e in periods)[key],
             key="delete_select",
         )
-        if columns[1].button("Видалити", use_container_width=True):
+        if columns[1].button("Видалити", width="stretch"):
             store.delete_period(target)
             st.session_state.pop(KEY_PERIOD, None)
             reset_reports()

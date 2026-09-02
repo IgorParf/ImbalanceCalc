@@ -44,7 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--threshold",
         type=float,
         default=DAILY_ALERT_THRESHOLD_UAH,
-        help="Поріг для аналізу по добах, грн (за замовчуванням 10000)",
+        help="Поріг для аналізу по добах, грн (за замовчуванням 1000)",
     )
     return parser
 

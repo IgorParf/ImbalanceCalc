@@ -1,4 +1,4 @@
-"""Тести добової агрегації та порогу 10 000 грн."""
+"""Тести добової агрегації та порогу для аналізу доби."""
 
 from __future__ import annotations
 
@@ -57,3 +57,11 @@ def test_build_daily_counts_billed_hours(frame):
     result = calculate_settlement(frame)
     daily = build_daily(result.hours, 10_000.0)
     assert daily["hours_billed"].sum() == (result.hours["cieq"] > 0).sum()
+
+
+def test_default_threshold_is_one_thousand():
+    """Значення за замовчуванням винесене в config і має лишатися явним."""
+    from imbalance_calc.config import DAILY_ALERT_THRESHOLD_UAH
+
+    assert DAILY_ALERT_THRESHOLD_UAH == 1000.0
+    assert CalculationSettings().daily_threshold_uah == 1000.0

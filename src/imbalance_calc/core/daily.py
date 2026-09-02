@@ -46,7 +46,7 @@ def filter_alert_days(
     daily: pd.DataFrame,
     threshold_uah: float = DAILY_ALERT_THRESHOLD_UAH,
 ) -> pd.DataFrame:
-    """Доби, платіж за які перевищує поріг (за замовчуванням 10 000 грн)."""
+    """Доби, платіж за які перевищує поріг (за замовчуванням 1 000 грн)."""
     return daily[daily["cieq"] > threshold_uah].sort_values("cieq", ascending=False)
 
 

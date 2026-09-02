@@ -78,7 +78,7 @@ render_payment_block(result)
 st.divider()
 
 st.subheader("Розрахунок по добах")
-st.altair_chart(daily_chart(result), use_container_width=True)
+st.altair_chart(daily_chart(result), width="stretch")
 
 alerts = result.alert_days
 threshold = money(settings.daily_threshold_uah, 0)
@@ -112,7 +112,7 @@ with tab_daily:
             lambda v: "background-color: #fde9e7" if v is True else "",
             subset=[COLUMN_TITLES["exceeds_threshold"]],
         ),
-        use_container_width=True,
+        width="stretch",
         height=460,
     )
 
@@ -121,7 +121,7 @@ with tab_hourly:
         "Повний погодинний розрахунок: власне відхилення, враховане відхилення W^α, "
         "ціни, сальдо групи, обраний сценарій (п. 2.1 Порядку) та платіж за годину."
     )
-    st.dataframe(hourly_display(result.hours), use_container_width=True, height=460)
+    st.dataframe(hourly_display(result.hours), width="stretch", height=460)
 
 st.divider()
 
@@ -143,9 +143,9 @@ else:
 
 columns = st.columns([1, 1, 2])
 make_pdf = columns[0].button(
-    "📄 Вивантажити звіт у PDF", type="primary", use_container_width=True
+    "📄 Вивантажити звіт у PDF", type="primary", width="stretch"
 )
-make_xlsx = columns[1].button("📊 Сформувати Excel", use_container_width=True)
+make_xlsx = columns[1].button("📊 Сформувати Excel", width="stretch")
 
 if make_pdf:
     with st.spinner("Формування звіту…"):

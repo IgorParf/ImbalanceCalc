@@ -171,6 +171,45 @@ def start_streamlit(port: int) -> threading.Thread:
     return thread
 
 
+def _check_data_formats() -> list[str]:
+    """Перевірити формати, на яких тримається робота зі сховищем і файлами ГП.
+
+    Зі збірки свідомо прибрано частину pyarrow (Flight, Substrait, заголовки)
+    та lxml — див. installer/imbalance_calc.spec. Ці перевірки підтверджують,
+    що прибрано лише зайве: parquet читається й пишеться, xlsx відкривається.
+    """
+    problems: list[str] = []
+
+    try:
+        import tempfile
+
+        import pandas as pd
+
+        frame = pd.DataFrame({"година": [1, 2], "обсяг": [1.5, -0.25]})
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "check.parquet"
+            frame.to_parquet(path, index=False, compression="zstd")
+            restored = pd.read_parquet(path)
+        if not restored.equals(frame):
+            problems.append("parquet: прочитані дані не збігаються із записаними")
+    except Exception as error:  # noqa: BLE001
+        problems.append(f"parquet (сховище періодів): {error}")
+
+    try:
+        from imbalance_calc.config import SAMPLES_DIR
+        from imbalance_calc.dataio import load_monthly_file
+
+        samples = sorted(SAMPLES_DIR.glob("*.xlsx"))
+        if samples:
+            frame = load_monthly_file(samples[0])
+            if frame.empty:
+                problems.append("xlsx: зразок прочитано, але таблиця порожня")
+    except Exception as error:  # noqa: BLE001
+        problems.append(f"xlsx (читання файлу ГП): {error}")
+
+    return problems
+
+
 def selfcheck() -> int:
     """Перевірити зібраний застосунок без відкривання вікна.
 
@@ -202,6 +241,9 @@ def selfcheck() -> int:
         except Exception as error:  # noqa: BLE001
             problems.append(f"кириличний шрифт для PDF: {error}")
 
+    if not problems:
+        problems.extend(_check_data_formats())
+
     for problem in problems:
         logging.error("Самоперевірка: %s", problem)
         print(f"ПОМИЛКА: {problem}", file=sys.stderr)
@@ -210,8 +252,11 @@ def selfcheck() -> int:
         logging.error("Самоперевірка провалена (%d проблем)", len(problems))
         return 1
 
-    logging.info("Самоперевірка пройдена: %d модулів, шрифт PDF", len(REQUIRED_MODULES))
-    print(f"OK: {len(REQUIRED_MODULES)} модулів, кириличний шрифт для PDF")
+    logging.info(
+        "Самоперевірка пройдена: %d модулів, шрифт PDF, parquet, xlsx",
+        len(REQUIRED_MODULES),
+    )
+    print(f"OK: {len(REQUIRED_MODULES)} модулів, шрифт PDF, parquet, xlsx")
     return 0
 
 

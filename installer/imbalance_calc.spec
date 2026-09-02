@@ -97,9 +97,67 @@ a = Analysis(
         "jupyter",
         "notebook",
         "tests",
+        # openpyxl працює й без lxml (відкат на ElementTree), а це 6,7 МБ
+        "lxml",
+        # Мережеві та RPC-можливості Arrow, яких застосунок не використовує:
+        # він читає й пише локальні parquet-файли, не звертаючись нікуди.
+        "pyarrow._flight",
+        "pyarrow.flight",
+        "pyarrow._substrait",
+        "pyarrow.substrait",
+        "pyarrow._s3fs",
+        "pyarrow._gcsfs",
+        "pyarrow._azurefs",
+        "pyarrow._hdfs",
+        "pyarrow._orc",
+        "pyarrow.orc",
+        "pyarrow._dataset_orc",
     ],
     noarchive=False,
 )
+
+# --- прибирання зайвого з дистрибутива ---------------------------------------
+#
+# collect_all("pyarrow") тягне все, що лежить у пакеті, включно з тим, що
+# потрібне лише для компіляції C++-розширень або для невикористовуваних
+# можливостей. На розмір це впливає відчутно: близько 30 МБ.
+#
+# Кожен запис нижче перевірений самоперевіркою (--selfcheck) і читанням
+# реального parquet — див. installer/build.ps1.
+DROP_SUFFIXES = (
+    ".lib",   # статичні бібліотеки — лише для збірки розширень
+    ".a",
+    ".pdb",   # символи налагодження
+)
+
+#: Фрагменти шляху записуються через «/» — шлях нормалізується перед звіркою.
+DROP_FRAGMENTS = (
+    "pyarrow/include/",         # заголовки C++
+    "pyarrow/src/",
+    "pyarrow/tests/",
+    "arrow_flight.dll",         # RPC-фреймворк Arrow Flight
+    "arrow_python_flight.dll",
+    "arrow_substrait.dll",      # серіалізація планів запитів
+)
+
+
+def _keep(destination: str) -> bool:
+    normalized = destination.replace("\\", "/")
+    if normalized.endswith(DROP_SUFFIXES):
+        return False
+    return not any(fragment in normalized for fragment in DROP_FRAGMENTS)
+
+
+def _trim(entries, label):
+    kept = [entry for entry in entries if _keep(entry[0])]
+    dropped = len(entries) - len(kept)
+    if dropped:
+        print(f"[imbalance_calc] прибрано з {label}: {dropped} записів")
+    return kept
+
+
+a.binaries = _trim(a.binaries, "binaries")
+a.datas = _trim(a.datas, "datas")
 
 pyz = PYZ(a.pure)
 
