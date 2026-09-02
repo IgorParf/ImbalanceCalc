@@ -14,6 +14,7 @@ env:
 
 jobs:
   tests:
+    timeout-minutes: 20
     # Windows: код читає системну теку «Завантаження» через SHGetKnownFolderPath
     # і формує PDF зі шрифтом matplotlib — це має перевірятися на цільовій ОС.
     runs-on: windows-latest

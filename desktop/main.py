@@ -208,14 +208,21 @@ def selfcheck() -> int:
     import importlib
 
     problems: list[str] = []
+    started = time.monotonic()
+
+    def stage(label: str) -> None:
+        """Позначити етап у лозі: без цього незрозуміло, де саме затримка."""
+        logging.info("Самоперевірка: %s (%.1f с)", label, time.monotonic() - started)
 
     for name in REQUIRED_MODULES:
+        stage(f"імпорт {name}")
         try:
             importlib.import_module(name)
         except Exception as error:  # noqa: BLE001 — цікавить будь-яка причина
             problems.append(f"модуль {name}: {error}")
 
     if not problems:
+        stage("шрифт для PDF")
         try:
             from imbalance_calc.reporting.pdf_report import _register_fonts
 
@@ -224,7 +231,10 @@ def selfcheck() -> int:
             problems.append(f"кириличний шрифт для PDF: {error}")
 
     if not problems:
+        stage("parquet і xlsx")
         problems.extend(_check_data_formats())
+
+    stage("завершено")
 
     for problem in problems:
         logging.error("Самоперевірка: %s", problem)

@@ -18,6 +18,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v4
@@ -45,10 +46,19 @@ jobs:
           python scripts/make_icon.py
           python scripts/make_version_info.py
 
+      # Захисник Windows сканує кожну з сотень щойно записаних DLL при першому
+      # запуску зібраного застосунку, через що самоперевірка тягнеться хвилинами.
+      - name: Виняток антивірусу для теки збірки
+        continue-on-error: true
+        run: |
+          Add-MpPreference -ExclusionPath (Join-Path $env:GITHUB_WORKSPACE "dist")
+          Add-MpPreference -ExclusionPath (Join-Path $env:GITHUB_WORKSPACE "build")
+
       - name: Збірка застосунку
         run: python -m PyInstaller installer/imbalance_calc.spec --noconfirm --distpath dist --workpath build
 
       - name: Самоперевірка збірки
+        timeout-minutes: 8
         run: |
           # ImbalanceCalc.exe зібрано як віконний (console=False), тому оболонка
           # НЕ чекає на його завершення: виклик через "&" повертає керування
@@ -63,6 +73,14 @@ jobs:
             throw "Самоперевірка збірки провалена (код $($check.ExitCode))"
           }
           Write-Host "Самоперевірка пройдена."
+
+      # Виконується завжди: якщо самоперевірка зависне і крок обірве таймаут,
+      # журнал із позначками етапів — єдине джерело інформації про причину.
+      - name: Журнал самоперевірки
+        if: always()
+        run: |
+          $log = "$env:LOCALAPPDATA\ImbalanceCalc\logs\desktop.log"
+          if (Test-Path $log) { Get-Content $log } else { "Журнал не створено: $log" }
 
       - name: Інсталятор
         run: |
