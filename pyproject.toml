@@ -26,16 +26,32 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.10",
 ]
+# Запуск у нативному вікні Windows: python desktop/main.py
+desktop = [
+    "pywebview>=5.0",
+]
+# Збірка Windows-додатку: installer/build.ps1
+build = [
+    "pywebview>=5.0",
+    "pyinstaller>=6.16",
+]
+# Генерація інструкції користувача: scripts/make_user_guide.py
+docs = [
+    "python-docx>=1.1",
+]
 
 [project.scripts]
 imbalance-calc = "imbalance_calc.cli:main"
+
+[project.gui-scripts]
+imbalance-calc-desktop = "desktop.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 
 [tool.ruff]
 line-length = 100

@@ -36,14 +36,15 @@ data/output/*
 !data/samples/*.xlsx
 !data/samples/*.csv
 
-# Згенеровані звіти
-reports/*
-!reports/.gitkeep
+# Збірка Windows-додатку
+build/
+dist/
 
 # Секрети / локальні налаштування
 .env
 .streamlit/secrets.toml
 
-# Локальне сховище розібраних періодів
+# Локальне сховище розібраних періодів та логи
 data/store/*
 !data/store/.gitkeep
+data/logs/

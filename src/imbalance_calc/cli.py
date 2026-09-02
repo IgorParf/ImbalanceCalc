@@ -26,9 +26,12 @@ from .reporting import build_excel_report, build_pdf_report, money
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="imbalance-calc", description=__doc__)
     parser.add_argument("input", type=Path, help="Місячний файл ГП (xlsx)")
-    parser.add_argument("--pdf", action="store_true", help="Зберегти PDF-звіт у reports/")
-    parser.add_argument("--excel", action="store_true", help="Зберегти xlsx-звіт у reports/")
-    parser.add_argument("-o", "--output-dir", type=Path, help="Інша папка для звітів")
+    parser.add_argument("--pdf", action="store_true", help="Зберегти PDF-звіт")
+    parser.add_argument("--excel", action="store_true", help="Зберегти xlsx-звіт")
+    parser.add_argument(
+        "-o", "--output-dir", type=Path,
+        help="Тека для звітів (типово системна тека «Завантаження»)",
+    )
     parser.add_argument("--k-e", type=float, default=DEFAULT_K_E, help="Допустиме відхилення, %%")
     parser.add_argument(
         "--alpha", type=float, default=DEFAULT_ALPHA, help="Частка відшкодування, %%"

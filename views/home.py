@@ -9,11 +9,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import streamlit as st  # noqa: E402
 
+from imbalance_calc.config import REPORTS_DIR  # noqa: E402
 from imbalance_calc.dataio.schema import COLUMN_TITLES  # noqa: E402
 from imbalance_calc.exceptions import ImbalanceCalcError  # noqa: E402
 from imbalance_calc.reporting import (  # noqa: E402
     build_excel_bytes,
-    build_pdf_report,
+    build_pdf_bytes,
     daily_display,
     hourly_display,
     money,
@@ -21,9 +22,11 @@ from imbalance_calc.reporting import (  # noqa: E402
 )
 from imbalance_calc.ui.components import (  # noqa: E402
     KEY_PDF,
+    KEY_PDF_PATH,
     KEY_RESULT,
     KEY_SIGNATURE,
     KEY_XLSX,
+    KEY_XLSX_PATH,
     daily_chart,
     period_picker,
     render_curtailment,
@@ -35,6 +38,7 @@ from imbalance_calc.ui.components import (  # noqa: E402
     settings_sidebar,
     store_manager,
 )
+from imbalance_calc.ui.save_dialog import is_desktop, reveal, save_bytes  # noqa: E402
 
 st.title("⚡ Розрахунок платежу за небаланси електричної енергії")
 st.caption(
@@ -122,38 +126,71 @@ with tab_hourly:
 st.divider()
 
 st.subheader("Звіт")
-st.caption(
-    "PDF зберігається у папку `reports/` у корені проєкту "
-    f"(файл {report_filename(result)})."
-)
+
+pdf_name = report_filename(result)
+xlsx_name = f"imbalance-report_{result.period_key}.xlsx"
+
+if is_desktop():
+    st.caption(
+        f"Після формування відкриється діалог вибору теки; "
+        f"за замовчуванням — «{REPORTS_DIR}»."
+    )
+else:
+    st.caption(
+        f"Файл завантажиться у теку завантажень браузера (зазвичай «{REPORTS_DIR}»). "
+        "Щоб щоразу обирати теку, увімкніть у браузері «Завжди питати, куди зберігати файли»."
+    )
 
 columns = st.columns([1, 1, 2])
+make_pdf = columns[0].button(
+    "📄 Вивантажити звіт у PDF", type="primary", use_container_width=True
+)
+make_xlsx = columns[1].button("📊 Сформувати Excel", use_container_width=True)
 
-if columns[0].button("📄 Вивантажити звіт у PDF", type="primary", use_container_width=True):
+if make_pdf:
     with st.spinner("Формування звіту…"):
-        path = build_pdf_report(result)
-    st.session_state[KEY_PDF] = (str(path), path.read_bytes())
+        payload = build_pdf_bytes(result)
+    st.session_state[KEY_PDF] = payload
+    if is_desktop():
+        saved = save_bytes(payload, pdf_name, REPORTS_DIR)
+        st.session_state[KEY_PDF_PATH] = str(saved) if saved else ""
 
-if columns[1].button("📊 Сформувати Excel", use_container_width=True):
+if make_xlsx:
     with st.spinner("Формування файлу…"):
-        st.session_state[KEY_XLSX] = build_excel_bytes(result)
+        payload = build_excel_bytes(result)
+    st.session_state[KEY_XLSX] = payload
+    if is_desktop():
+        saved = save_bytes(payload, xlsx_name, REPORTS_DIR)
+        st.session_state[KEY_XLSX_PATH] = str(saved) if saved else ""
 
-pdf_saved = st.session_state.get(KEY_PDF)
-if pdf_saved:
-    saved_path, saved_bytes = pdf_saved
-    st.success(f"Звіт збережено: `{saved_path}`")
-    st.download_button(
-        "⬇️ Завантажити копію PDF",
-        data=saved_bytes,
-        file_name=Path(saved_path).name,
-        mime="application/pdf",
-    )
 
-xlsx_saved = st.session_state.get(KEY_XLSX)
-if xlsx_saved:
-    st.download_button(
-        "⬇️ Завантажити Excel з погодинним розрахунком",
-        data=xlsx_saved,
-        file_name=f"imbalance-report_{result.period_key}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
+def _offer(payload: bytes | None, path_key: str, name: str, mime: str, label: str) -> None:
+    """Показати результат збереження або кнопку завантаження для браузера."""
+    if not payload:
+        return
+    if is_desktop():
+        saved_path = st.session_state.get(path_key)
+        if saved_path:
+            st.success(f"Збережено: `{saved_path}`")
+            if st.button(f"📂 Показати в Провіднику: {Path(saved_path).name}"):
+                reveal(saved_path)
+        else:
+            st.info("Збереження скасовано.")
+        return
+    st.download_button(label, data=payload, file_name=name, mime=mime)
+
+
+_offer(
+    st.session_state.get(KEY_PDF),
+    KEY_PDF_PATH,
+    pdf_name,
+    "application/pdf",
+    "⬇️ Завантажити PDF",
+)
+_offer(
+    st.session_state.get(KEY_XLSX),
+    KEY_XLSX_PATH,
+    xlsx_name,
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "⬇️ Завантажити Excel з погодинним розрахунком",
+)

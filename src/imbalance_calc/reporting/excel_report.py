@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ..config import REPORTS_DIR
+from .. import config
 from ..models import SettlementResult
 from .summary import daily_display, hourly_display, totals_rows
 
@@ -35,8 +35,8 @@ def build_excel_bytes(result: SettlementResult) -> bytes:
 
 
 def build_excel_report(result: SettlementResult, directory: Path | str | None = None) -> Path:
-    """Зберегти xlsx-звіт у папку ``reports/`` і повернути шлях до файлу."""
-    target_dir = Path(directory) if directory else REPORTS_DIR
+    """Зберегти xlsx-звіт у теку ``directory`` (типово «Завантаження»)."""
+    target_dir = Path(directory) if directory else config.REPORTS_DIR
     target_dir.mkdir(parents=True, exist_ok=True)
     path = target_dir / f"imbalance-report_{result.period_key}.xlsx"
     path.write_bytes(build_excel_bytes(result))

@@ -39,7 +39,7 @@ class TestCurtailmentDuration:
 
 class TestDurationFormat:
     def test_formats_hours_and_minutes(self):
-        assert duration(33.8472) == "33 год 51 хв"
+        assert duration(12.5) == "12 год 30 хв"
 
     def test_pads_minutes(self):
         assert duration(5.0) == "5 год 00 хв"

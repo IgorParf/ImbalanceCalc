@@ -20,7 +20,7 @@ def volume(value: float, digits: int = 3) -> str:
 
 
 def duration(hours: float) -> str:
-    """Форматувати тривалість у вигляді «33 год 51 хв»."""
+    """Форматувати тривалість у вигляді «12 год 30 хв»."""
     total_minutes = int(round(hours * 60))
     return f"{total_minutes // 60} год {total_minutes % 60:02d} хв"
 

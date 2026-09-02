@@ -30,13 +30,15 @@ KEY_PERIOD = "period_key"
 KEY_COMPARE = "compare_result"
 KEY_PDF = "pdf_report"
 KEY_XLSX = "xlsx_report"
+KEY_PDF_PATH = "pdf_report_path"
+KEY_XLSX_PATH = "xlsx_report_path"
 KEY_SIGNATURE = "result_signature"
 
 
 def reset_reports() -> None:
     """Скинути раніше сформовані звіти (період або параметри змінилися)."""
-    st.session_state.pop(KEY_PDF, None)
-    st.session_state.pop(KEY_XLSX, None)
+    for key in (KEY_PDF, KEY_XLSX, KEY_PDF_PATH, KEY_XLSX_PATH):
+        st.session_state.pop(key, None)
 
 
 def bootstrap_path() -> None:

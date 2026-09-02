@@ -1,0 +1,21 @@
+# Нормалізація кінців рядків: у репозиторії — LF, у робочій копії — за платформою.
+* text=auto eol=lf
+
+# Файли, які Windows-інструменти читають лише з CRLF
+*.ps1   text eol=crlf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.iss   text eol=crlf
+
+# Двійкові файли не чіпати
+*.xlsx  binary
+*.xls   binary
+*.docx  binary
+*.pdf   binary
+*.ico   binary
+*.png   binary
+*.parquet binary
+
+# Згенеровані файли не показувати у статистиці мов і не розгортати у diff
+installer/version_info.txt linguist-generated=true
+docs/user-guide.docx       linguist-generated=true

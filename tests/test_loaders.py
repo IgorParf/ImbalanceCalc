@@ -54,5 +54,5 @@ def test_broken_control_relation_is_reported(frame):
 
 
 def test_guess_period_label():
-    assert guess_period_label("62W663740852221O липень 2026 (1).xlsx") == "липень 2026"
+    assert guess_period_label("62W000000000000X липень 2026 (1).xlsx") == "липень 2026"
     assert guess_period_label("report.xlsx") == ""

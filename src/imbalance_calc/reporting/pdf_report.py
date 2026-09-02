@@ -30,7 +30,7 @@ from reportlab.platypus import (  # noqa: E402
     TableStyle,
 )
 
-from ..config import REPORTS_DIR  # noqa: E402
+from .. import config  # noqa: E402
 from ..models import SettlementResult  # noqa: E402
 from .summary import duration, money, totals_rows, volume  # noqa: E402
 
@@ -310,8 +310,8 @@ def report_filename(result: SettlementResult) -> str:
 
 
 def build_pdf_report(result: SettlementResult, directory: Path | str | None = None) -> Path:
-    """Зберегти PDF-звіт у папку ``reports/`` і повернути шлях до файлу."""
-    target_dir = Path(directory) if directory else REPORTS_DIR
+    """Зберегти PDF-звіт у теку ``directory`` (типово «Завантаження»)."""
+    target_dir = Path(directory) if directory else config.REPORTS_DIR
     target_dir.mkdir(parents=True, exist_ok=True)
     path = target_dir / report_filename(result)
     path.write_bytes(build_pdf_bytes(result))
