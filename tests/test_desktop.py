@@ -36,6 +36,42 @@ class TestPorts:
             assert desktop.wait_for_server(server.getsockname()[1], timeout=2.0)
 
 
+class TestConsoleEncoding:
+    """Кирилиця у виводі не має валити запуск у cp866/cp1252."""
+
+    def test_reconfigures_streams(self, monkeypatch):
+        calls: list[dict] = []
+
+        class Stream:
+            def reconfigure(self, **kwargs):
+                calls.append(kwargs)
+
+        monkeypatch.setattr(desktop.sys, "stdout", Stream())
+        monkeypatch.setattr(desktop.sys, "stderr", Stream())
+        desktop.prepare_console()
+        assert calls == [{"encoding": "utf-8", "errors": "replace"}] * 2
+
+    def test_survives_missing_streams(self, monkeypatch):
+        """У вікні без консолі sys.stdout дорівнює None."""
+        monkeypatch.setattr(desktop.sys, "stdout", None)
+        monkeypatch.setattr(desktop.sys, "stderr", None)
+        desktop.prepare_console()
+
+    def test_survives_stream_without_reconfigure(self, monkeypatch):
+        monkeypatch.setattr(desktop.sys, "stdout", object())
+        monkeypatch.setattr(desktop.sys, "stderr", object())
+        desktop.prepare_console()
+
+    def test_survives_reconfigure_failure(self, monkeypatch):
+        class Stream:
+            def reconfigure(self, **kwargs):
+                raise OSError("потік не підтримує зміну кодування")
+
+        monkeypatch.setattr(desktop.sys, "stdout", Stream())
+        monkeypatch.setattr(desktop.sys, "stderr", Stream())
+        desktop.prepare_console()
+
+
 class TestSignalShim:
     """Streamlit ставить обробник SIGTERM, а це можливо лише в головному потоці."""
 

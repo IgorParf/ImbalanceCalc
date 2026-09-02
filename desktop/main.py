@@ -60,6 +60,25 @@ REQUIRED_MODULES = (
 )
 
 
+def prepare_console() -> None:
+    """Дозволити виводити кирилицю в консоль.
+
+    Кодування stdout залежить від того, звідки запущено: cmd.exe дає cp866,
+    Windows-runner GitHub Actions — cp1252. У таких кодуваннях кирилиця не
+    представляється, і ``print`` падає з ``UnicodeEncodeError`` ще до того, як
+    користувач побачить повідомлення.
+
+    У вікні без консолі ``sys.stdout`` дорівнює ``None`` — тоді нічого робити
+    не треба, ``print`` там і так мовчить.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (OSError, ValueError):
+                pass
+
+
 def setup_logging() -> Path:
     """Без консолі помилки видно лише у файлі — тому лог обов'язковий."""
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -197,6 +216,7 @@ def selfcheck() -> int:
 
 
 def main() -> int:
+    prepare_console()
     log_path = setup_logging()
 
     if "--selfcheck" in sys.argv:
