@@ -137,7 +137,14 @@ Write-Host ("Розмір теки: {0:N0} МБ" -f ($size / 1MB))
 # модуль виявляється лише при ручному клацанні по інтерфейсу.
 Write-Host ""
 Write-Host "Самоперевірка збірки..." -ForegroundColor Cyan
-$check = Start-Process $appExe -ArgumentList "--selfcheck" -Wait -PassThru
+$check = Start-Process $appExe -ArgumentList "--selfcheck" -PassThru
+# .Handle треба торкнутися до очікування: без цього об'єкт від Start-Process
+# не кешує дескриптор, і WaitForExit/ExitCode можуть не побачити завершення.
+$null = $check.Handle
+if (-not $check.WaitForExit(120000)) {
+    $check.Kill()
+    throw "Самоперевірка не завершилася за 2 хвилини"
+}
 if ($check.ExitCode -ne 0) {
     $log = Join-Path $env:LOCALAPPDATA "ImbalanceCalc\logs\desktop.log"
     if (Test-Path $log) { Get-Content $log -Tail 20 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red } }
