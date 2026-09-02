@@ -23,6 +23,7 @@ if not getattr(sys, "frozen", False):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from imbalance_calc.config import APP_NAME, LOG_DIR, resource_dir  # noqa: E402
+from imbalance_calc.console import prepare_console  # noqa: E402
 from imbalance_calc.ui.save_dialog import DESKTOP_ENV  # noqa: E402
 
 WINDOW_TITLE = "Небаланси електричної енергії"
@@ -58,25 +59,6 @@ REQUIRED_MODULES = (
     "pyarrow",
     "webview",
 )
-
-
-def prepare_console() -> None:
-    """Дозволити виводити кирилицю в консоль.
-
-    Кодування stdout залежить від того, звідки запущено: cmd.exe дає cp866,
-    Windows-runner GitHub Actions — cp1252. У таких кодуваннях кирилиця не
-    представляється, і ``print`` падає з ``UnicodeEncodeError`` ще до того, як
-    користувач побачить повідомлення.
-
-    У вікні без консолі ``sys.stdout`` дорівнює ``None`` — тоді нічого робити
-    не треба, ``print`` там і так мовчить.
-    """
-    for stream in (sys.stdout, sys.stderr):
-        if stream is not None and hasattr(stream, "reconfigure"):
-            try:
-                stream.reconfigure(encoding="utf-8", errors="replace")
-            except (OSError, ValueError):
-                pass
 
 
 def setup_logging() -> Path:

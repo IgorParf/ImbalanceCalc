@@ -7,6 +7,7 @@ import socket
 import pytest
 
 from desktop import main as desktop
+from imbalance_calc import console
 
 
 class TestPorts:
@@ -46,30 +47,30 @@ class TestConsoleEncoding:
             def reconfigure(self, **kwargs):
                 calls.append(kwargs)
 
-        monkeypatch.setattr(desktop.sys, "stdout", Stream())
-        monkeypatch.setattr(desktop.sys, "stderr", Stream())
-        desktop.prepare_console()
+        monkeypatch.setattr(console.sys, "stdout", Stream())
+        monkeypatch.setattr(console.sys, "stderr", Stream())
+        console.prepare_console()
         assert calls == [{"encoding": "utf-8", "errors": "replace"}] * 2
 
     def test_survives_missing_streams(self, monkeypatch):
         """У вікні без консолі sys.stdout дорівнює None."""
-        monkeypatch.setattr(desktop.sys, "stdout", None)
-        monkeypatch.setattr(desktop.sys, "stderr", None)
-        desktop.prepare_console()
+        monkeypatch.setattr(console.sys, "stdout", None)
+        monkeypatch.setattr(console.sys, "stderr", None)
+        console.prepare_console()
 
     def test_survives_stream_without_reconfigure(self, monkeypatch):
-        monkeypatch.setattr(desktop.sys, "stdout", object())
-        monkeypatch.setattr(desktop.sys, "stderr", object())
-        desktop.prepare_console()
+        monkeypatch.setattr(console.sys, "stdout", object())
+        monkeypatch.setattr(console.sys, "stderr", object())
+        console.prepare_console()
 
     def test_survives_reconfigure_failure(self, monkeypatch):
         class Stream:
             def reconfigure(self, **kwargs):
                 raise OSError("потік не підтримує зміну кодування")
 
-        monkeypatch.setattr(desktop.sys, "stdout", Stream())
-        monkeypatch.setattr(desktop.sys, "stderr", Stream())
-        desktop.prepare_console()
+        monkeypatch.setattr(console.sys, "stdout", Stream())
+        monkeypatch.setattr(console.sys, "stderr", Stream())
+        console.prepare_console()
 
 
 class TestSignalShim:

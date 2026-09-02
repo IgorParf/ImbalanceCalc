@@ -28,6 +28,7 @@ from imbalance_calc.config import (  # noqa: E402
     DEFAULT_K_IM,
     DEFAULT_VAT_RATE,
 )
+from imbalance_calc.console import prepare_console  # noqa: E402
 
 REPO = "https://github.com/IgorParf/ImbalanceCalc"
 ACCENT = RGBColor(0x1F, 0x4E, 0x79)
@@ -417,6 +418,7 @@ def save(path: Path) -> Path:
 
 
 if __name__ == "__main__":
+    prepare_console()
     target = (
         Path(sys.argv[1])
         if len(sys.argv) > 1

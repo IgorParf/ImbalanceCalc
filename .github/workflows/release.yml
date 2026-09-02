@@ -7,6 +7,11 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# Консоль runner-а працює в cp1252 — без цього будь-який print з
+# кирилицею падає з UnicodeEncodeError.
+env:
+  PYTHONIOENCODING: utf-8
+
 permissions:
   contents: write
 
@@ -63,7 +68,9 @@ jobs:
       - name: Публікація випуску
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          # Не draft: інакше повторний push того самого тега зняв би вже
+          # опублікований випуск назад у чернетки.
+          draft: false
           files: |
             dist/ImbalanceCalc-*-setup.exe
             docs/user-guide.docx

@@ -7,6 +7,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Консоль runner-а працює в cp1252 — без цього будь-який print з
+# кирилицею падає з UnicodeEncodeError.
+env:
+  PYTHONIOENCODING: utf-8
+
 jobs:
   tests:
     # Windows: код читає системну теку «Завантаження» через SHGetKnownFolderPath

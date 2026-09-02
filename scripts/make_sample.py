@@ -20,6 +20,7 @@ from openpyxl import Workbook
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from imbalance_calc.console import prepare_console  # noqa: E402
 from imbalance_calc.dataio.schema import HOURS_PER_DAY, SHEET_COLUMNS  # noqa: E402
 
 YEAR, MONTH = 2026, 7
@@ -111,6 +112,7 @@ def save(path: Path) -> Path:
 
 
 if __name__ == "__main__":
+    prepare_console()
     target = Path(sys.argv[1]) if len(sys.argv) > 1 else (
         Path(__file__).resolve().parents[1] / "data" / "samples" / "sample_month_2026-07.xlsx"
     )

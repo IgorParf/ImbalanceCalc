@@ -21,6 +21,7 @@ from imbalance_calc.config import (  # noqa: E402
     DEFAULT_K_IM,
     INPUT_DIR,
 )
+from imbalance_calc.console import prepare_console  # noqa: E402
 
 TARGET = INPUT_DIR / "control.json"
 
@@ -80,4 +81,5 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    prepare_console()
     raise SystemExit(main())

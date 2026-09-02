@@ -14,6 +14,10 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from imbalance_calc.console import prepare_console  # noqa: E402
+
 SIZES = (16, 24, 32, 48, 64, 128, 256)
 BACKGROUND = (31, 78, 121)   # #1f4e79 — акцентний колір звітів і графіків
 BOLT = (255, 209, 102)       # тепла жовта блискавка
@@ -53,6 +57,7 @@ def save(path: Path) -> Path:
 
 
 if __name__ == "__main__":
+    prepare_console()
     target = (
         Path(sys.argv[1])
         if len(sys.argv) > 1
