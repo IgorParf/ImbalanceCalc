@@ -61,6 +61,11 @@ def make_workbook(values: dict[str, list[list[float]]] | None = None) -> io.Byte
     wb = Workbook()
     wb.remove(wb.active)
     for sheet_name, column in SHEET_COLUMNS.items():
+        # Склад аркушів змінний: тут відтворюємо найпоширеніший варіант, у
+        # якому дельти групи не розкладені на окремий аркуш ΔΣS. Варіанти
+        # складу перевіряє tests/test_sheet_variations.py.
+        if column not in values:
+            continue
         # Excel обрізає назви аркушів до 31 символу — відтворюємо це
         ws = wb.create_sheet(sheet_name[:31])
         ws.append(["Доба", "Зона"] + [f"{h} год" for h in range(1, HOURS_PER_DAY + 1)])

@@ -9,7 +9,7 @@
 #define AppName "ImbalanceCalc"
 ; Версію передає build.ps1 (/DAppVersion=...), беручи її з imbalance_calc.__version__.
 #ifndef AppVersion
-  #define AppVersion "0.1.1"
+  #define AppVersion "0.1.2"
 #endif
 #define AppPublisher "IgorParf"
 #define AppExeName "ImbalanceCalc.exe"

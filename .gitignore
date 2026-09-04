@@ -48,3 +48,6 @@ dist/
 data/store/*
 !data/store/.gitkeep
 data/logs/
+
+# Локальні нотатки про дефекти вхідних даних (не для репозиторію)
+docs/defect_data.md

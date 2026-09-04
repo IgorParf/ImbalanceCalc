@@ -11,7 +11,7 @@ import pandas as pd
 from openpyxl import load_workbook
 
 from ..exceptions import FileFormatError, ValidationError
-from .schema import HOURS_PER_DAY, SHEET_COLUMNS
+from .schema import GROUP_DELTA_PARTS, HOURS_PER_DAY, REQUIRED_SHEETS, SHEET_COLUMNS
 
 
 def _normalize(name: str) -> str:
@@ -75,8 +75,11 @@ def load_monthly_file(source: str | Path | IO[bytes]) -> pd.DataFrame:
     """Прочитати файл ГП і повернути погодинну таблицю.
 
     Колонки результату: ``date``, ``hour``, ``zone``, ``timestamp`` та всі
-    величини з :data:`~imbalance_calc.dataio.schema.SHEET_COLUMNS`.
+    величини з :data:`~imbalance_calc.dataio.schema.REQUIRED_COLUMNS`.
     Один рядок — одна розрахункова година.
+
+    Відсутні аркуші команд ОСП дають нульові дельти, а окремий аркуш ``ΔΣS``
+    додається до ``ΔΣW`` — див. docs/gp_file_format_variations.md.
     """
     try:
         wb = load_workbook(source, data_only=True)
@@ -97,7 +100,7 @@ def load_monthly_file(source: str | Path | IO[bytes]) -> pd.DataFrame:
     finally:
         wb.close()
 
-    missing = [name for name, col in SHEET_COLUMNS.items() if col not in columns]
+    missing = [name for name, col in REQUIRED_SHEETS.items() if col not in columns]
     if missing:
         raise ValidationError("У файлі бракує аркушів: " + ", ".join(missing))
 
@@ -114,6 +117,17 @@ def load_monthly_file(source: str | Path | IO[bytes]) -> pd.DataFrame:
     )
     for column, series in columns.items():
         frame[column] = [series.get(key, float("nan")) for key in keys]
+
+    # Аркушів команд ОСП може не бути — тоді дельта за місяць справді нульова.
+    for column in SHEET_COLUMNS.values():
+        if column not in frame.columns:
+            frame[column] = 0.0
+
+    # ΔΣS існує окремим аркушем не завжди; коли існує, дельта групи — сума
+    # обох аркушів. Пропустити його означає взяти неповну дельту й отримати
+    # інший рахунок без жодної помилки, тож згортаємо одразу при читанні.
+    base, extra = GROUP_DELTA_PARTS
+    frame[base] = frame[base] + frame.pop(extra)
 
     frame["timestamp"] = pd.to_datetime(frame["date"]) + pd.to_timedelta(frame["hour"] - 1, "h")
     return frame

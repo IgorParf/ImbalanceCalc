@@ -39,7 +39,11 @@ def solar_profile(hour: int, peak: float) -> float:
 def build() -> dict[str, list[list[float]]]:
     rng = random.Random(SEED)
     days = monthrange(YEAR, MONTH)[1]
-    columns: dict[str, list[list[float]]] = {c: [] for c in SHEET_COLUMNS.values()}
+    # Склад аркушів у справжніх файлах змінний: тут відтворюємо найпоширеніший
+    # варіант, у якому дельти групи не розкладені на окремий аркуш ΔΣS.
+    columns: dict[str, list[list[float]]] = {
+        c: [] for c in SHEET_COLUMNS.values() if c != "d_sum_s"
+    }
 
     for _ in range(days):
         peak = CAPACITY_MW * rng.uniform(0.55, 1.0)
@@ -101,6 +105,8 @@ def save(path: Path) -> Path:
     wb = Workbook()
     wb.remove(wb.active)
     for sheet_name, column in SHEET_COLUMNS.items():
+        if column not in columns:
+            continue
         ws = wb.create_sheet(sheet_name[:31])
         ws.append(["Доба", "Зона"] + [f"{h} год" for h in range(1, HOURS_PER_DAY + 1)])
         for index, day in enumerate(days):
